@@ -1,0 +1,52 @@
+name: Build VM Disk Image
+
+on:
+  push:
+    branches: '*'
+    tags: '*'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Build
+        uses: docker/build-push-action@v2
+        with:
+          push: false
+          tags: ldc-x86_64-apple-macos
+
+      - name: Compile
+        run: |
+          cat <<EOF > main.d
+          import std;
+
+          void main()
+          {
+              writeln("Hello World");
+          }
+          EOF
+          docker run --rm -v "$(pwd):/work" ldc-x86_64-apple-macos main.d
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v2
+        with:
+          path: main
+          name: executable
+          if-no-files-found: error
+          retention-days: 1
+
+  test:
+    name: Test
+    runs-on: macOS-latest
+    needs: build
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Test
+        run: |
+          chmod +x ./executable/main
+          ./executable/main
